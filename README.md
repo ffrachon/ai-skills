@@ -8,29 +8,14 @@ Skills for Claude (Claude Code and the Claude apps).
 
 ## Install
 
-### Claude Code
+| You use | How |
+|---|---|
+| **Claude desktop app** | **Settings > Customize > Plugins > + Add** > add a marketplace > `ffrachon/ai-skills`, then install the skill from the list. (Typing `/plugin ...` in the app only opens this page.) |
+| **Claude Code in a terminal** | `/plugin marketplace add ffrachon/ai-skills`, then `/plugin install <skill>@ai-skills` |
+| **claude.ai in a browser** | Download the `.skill` file from the [latest release](https://github.com/ffrachon/ai-skills/releases/latest) and upload it under **Settings > Customize > Skills** |
 
-Add this repository as a plugin marketplace once, then install the skills you want:
-
-```
-/plugin marketplace add ffrachon/ai-skills
-/plugin install dev-pc-tuning@ai-skills
-```
-
-Restart Claude Code if the skill doesn't show up straight away. To get updates later:
-`/plugin marketplace update ai-skills`.
-
-### Claude apps (claude.ai / desktop)
-
-Download the skill's `.skill` file from the
-[latest release](https://github.com/ffrachon/ai-skills/releases/latest) (or from `dist/`),
-then open *Settings > Capabilities > Skills*, choose *Upload skill* and pick the file.
-Skills must be enabled for your plan or organisation.
-
-### Manual (Claude Code)
-
-A `.skill` file is a zip. Unzip it into `~/.claude/skills/` (Windows:
-`%USERPROFILE%\.claude\skills\`) so you get `~/.claude/skills/<skill>/SKILL.md`.
+Step-by-step instructions, with fallbacks: see each skill's README, e.g.
+[dev-pc-tuning](plugins/dev-pc-tuning/README.md#install).
 
 ## Layout
 

@@ -21,26 +21,67 @@ integrity weigh in (your decision), and the macOS Developer Tools exemption and 
 
 ## Install
 
-### Claude Code (recommended: updates come with the plugin)
+Pick the line that matches where you use Claude. In every case the skill becomes available
+in new conversations or sessions; there is nothing to configure.
+
+| You use | Easiest way | Updates |
+|---|---|---|
+| **Claude desktop app** (Chat or Code tab) | A. Add the plugin marketplace in Settings | automatic, from the marketplace |
+| **Claude Code in a terminal** | B. Two `/plugin` commands | automatic, from the marketplace |
+| **claude.ai in a browser** | C. Upload the `.skill` file | re-upload new versions |
+
+### A. Claude desktop app
+
+Typing `/plugin ...` in the desktop app only opens the plugin settings page; it does not run
+the rest of the command. Add the marketplace there instead:
+
+1. Open **Settings > Customize > Plugins** (or type `/plugin` in a message box).
+2. Click the **+ Add** button (top right) and choose the option to add a **marketplace**
+   (from GitHub / from a URL).
+3. Enter `ffrachon/ai-skills` (or `https://github.com/ffrachon/ai-skills` if it asks for a
+   URL) and confirm.
+4. Search for **dev-pc-tuning**: it now appears with *ai-skills* as its source. Install it
+   (the **+** button).
+
+Searching for `dev-pc-tuning` **before** step 3 finds nothing: the search only covers
+marketplaces that have already been added.
+
+If your version of the app has no marketplace option under **+ Add**, use C (upload) or the
+terminal commands in B instead.
+
+### B. Claude Code in a terminal
+
+Inside a `claude` session:
 
 ```
 /plugin marketplace add ffrachon/ai-skills
 /plugin install dev-pc-tuning@ai-skills
 ```
 
-Later updates: `/plugin marketplace update ai-skills`.
+or straight from the shell:
 
-### Claude apps (claude.ai / desktop)
+```bash
+claude plugin marketplace add ffrachon/ai-skills
+claude plugin install dev-pc-tuning@ai-skills
+```
 
-Download `dev-pc-tuning.skill` from the
-[latest release](https://github.com/ffrachon/ai-skills/releases/latest) (or `dist/` at the
-repo root), then open
-*Settings > Capabilities > Skills* (the name may vary slightly by version), choose
-*Upload skill*, and pick the file. Skills need to be enabled for your plan/organisation.
+Restart Claude Code if the skill doesn't show up straight away. Later updates:
+`/plugin marketplace update ai-skills`. Remove: `/plugin uninstall dev-pc-tuning@ai-skills`.
 
-### Claude Code, manual install
+### C. Upload the skill file (claude.ai, or any app without plugins)
 
-The `.skill` file is a zip; unzip it into your personal skills folder:
+1. Download **`dev-pc-tuning.skill`** from the
+   [latest release](https://github.com/ffrachon/ai-skills/releases/latest).
+2. Open **Settings > Customize > Skills** (older versions: *Settings > Capabilities >
+   Skills*), choose **Upload skill** (under **+ Add** in newer versions) and pick the file.
+3. Skills must be enabled for your plan or organisation; if you can't see a Skills section,
+   ask your admin.
+
+For a new version, download and upload the new file again.
+
+### D. Manual install for Claude Code
+
+The `.skill` file is a zip. Unzip it into your personal skills folder:
 
 ```powershell
 # Windows
@@ -52,6 +93,12 @@ mkdir -p ~/.claude/skills && unzip -o dev-pc-tuning.skill -d ~/.claude/skills
 ```
 
 You should end up with `.claude/skills/dev-pc-tuning/SKILL.md`. Start a new session.
+
+### Check it works
+
+Start a new conversation and ask: *"My builds are slow on this PC, can you check my
+setup?"* Claude should say it is using the **dev-pc-tuning** skill and offer to run the
+read-only audit.
 
 ## Use
 
