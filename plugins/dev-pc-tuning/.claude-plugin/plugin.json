@@ -1,0 +1,10 @@
+{
+  "name": "dev-pc-tuning",
+  "version": "1.0.0",
+  "description": "Audit and tune a Windows PC (and optionally a Mac) for heavy development: Dev Drive, Defender, temp files, build output, test runs, Rust/WSL/PostgreSQL settings. Read-only audit; the user applies every change.",
+  "author": { "name": "ffrachon", "url": "https://github.com/ffrachon" },
+  "homepage": "https://github.com/ffrachon/ai-skills/tree/main/plugins/dev-pc-tuning",
+  "repository": "https://github.com/ffrachon/ai-skills",
+  "license": "MIT",
+  "keywords": ["windows", "dev-drive", "defender", "rust", "flutter", "performance"]
+}
