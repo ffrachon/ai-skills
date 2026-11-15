@@ -16,7 +16,9 @@ turning off indexing usually gains nothing, cleaning 60-115 GB `target` folders 
 disks, running one heavy test suite at a time, fewer test binaries, faster test databases
 (template databases, non-durable settings for throwaway clusters), optional Rust speed-ups
 (linker, sccache, debug info), git/Gradle settings for big repos, WSL file placement and
-memory caps, power throttling, how security features like Smart App Control and memory
+memory caps, a WSL 2 distro as a faster Linux test lane (getting code in, driving it from
+Windows), the WSL clock stepping back when a time daemon runs in any distro, mirrored
+networking side effects, power throttling, how security features like Smart App Control and memory
 integrity weigh in (your decision), and the macOS Developer Tools exemption and Rosetta check.
 
 ## Install

@@ -51,6 +51,17 @@ which then trigger reruns that make it worse.
    test cluster (`postgres.md`).
 7. **Don't wait idle on a 25-minute run** in an AI session; hand the wait to a background
    job and check back, and don't start a second full run "to save time".
+8. **Consider a Linux lane in WSL 2** for a big suite (measure first): in one measurement
+   the tests ran about 25% faster in a dedicated distro on its own ext4 disk, with less
+   than half the build-output disk. It shares the machine, so the same lock must cover
+   both sides (`wsl-containers.md`).
+
+**Time-sensitive tests failing at random only in WSL** (rate limits "too soon", wrong
+"newest first" order, jobs not yet due): check the WSL clock before blaming the tests. A
+time daemon in any distro makes the shared kernel clock step back about a second every
+minute (`wsl-containers.md`, "One time source"). **Tests that wait for "connection
+refused" are slow only in WSL:** mirrored networking drops connections to closed
+localhost ports instead (`wsl-containers.md`, "Mirrored networking").
 
 For AI coding sessions specifically: tell each session the rule ("targeted tests while
 working, one full check at the end, wait if another full check is running") - for example
