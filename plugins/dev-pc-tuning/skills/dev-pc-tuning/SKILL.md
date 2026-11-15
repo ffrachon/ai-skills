@@ -1,6 +1,6 @@
 ---
 name: dev-pc-tuning
-description: Audit and tune a Windows PC (and optionally a Mac) for heavy software development - large Rust, Flutter, Node or C++ builds, long test suites, local PostgreSQL or containers, several AI coding sessions or IDEs at once. Runs a read-only audit, helps measure where time goes (Defender scanning, slow linking, temp files on C:, indexing, disk space), then recommends changes with the gain, the risk and how to undo each one, as commands the user runs themselves. Use this whenever someone says builds or tests are slow on Windows, asks about Dev Drive, ReFS, Defender exclusions or performance mode, antivirus slowing cargo/flutter/npm, where to put caches or TEMP, cleaning up huge target or node_modules folders, test runs timing out when several run at once, or why their Mac is faster or slower than their PC for builds - even if they don't say "tuning".
+description: Audit and tune a Windows PC (and optionally a Mac) for heavy software development - large Rust, Flutter, Node or C++ builds, long test suites, local PostgreSQL or containers, several AI coding sessions or IDEs at once. Runs a read-only audit, helps measure where time goes (Defender scanning, slow linking, temp files on C:, indexing, disk space), then recommends changes with the gain, the risk and how to undo each one, as commands the user runs themselves. Use this whenever someone says builds or tests are slow on Windows, asks about Dev Drive, ReFS, Defender exclusions or performance mode, antivirus slowing cargo/flutter/npm, where to put caches or TEMP, cleaning up huge target or node_modules folders, test runs timing out when several run at once, whether to run a Windows project's test suite in WSL 2, WSL clock jumps or time-sensitive tests failing at random in WSL, WSL mirrored-networking port clashes or slow "connection refused" checks, or why their Mac is faster or slower than their PC for builds - even if they don't say "tuning".
 ---
 
 # Dev PC tuning
@@ -50,7 +50,8 @@ The script reports: Windows/CPU/RAM, volumes and file systems, Dev Drive status 
 Defender state (real-time, performance mode, exclusions), where toolchains and caches live
 (rustup, cargo, Flutter, Pub, npm, pnpm, Gradle, TEMP), Windows Search scope, power plan,
 page file, free space, size of build-output folders (`target`, `build`, `.dart_tool`,
-`node_modules`), WSL/Docker/Podman disk images and `.wslconfig` caps, Smart App Control and
+`node_modules`), WSL/Docker/Podman disk images and `.wslconfig` caps and networking mode, the
+WSL clock in each running distro (time daemons, kernel tick, backward jumps), Smart App Control and
 memory-integrity state, global git and Gradle settings, PostgreSQL services, and a list of
 findings.
 
@@ -74,6 +75,9 @@ Pick the measurement that matches the complaint (details in the references):
 - **Linking:** `cargo build --timings` or the time between "Compiling" finishing and the test
   binary starting (`references/rust.md`).
 - **Contention:** time one full test run alone vs two at once (`references/test-runs.md`).
+- **Windows vs a WSL 2 lane:** the same full check on both sides, with a timestamp on every
+  log line, compared per step (compile, test start-up, each test group)
+  (`references/wsl-containers.md`).
 - Note the baseline numbers so every change can be judged against them.
 
 ### 4. Recommend, ordered by gain-for-risk
@@ -95,8 +99,12 @@ Typical order (skip what the audit shows is already done):
    `references/postgres.md`). Measure first; often the biggest test-time wins.
 7. **Optional, measure each:** faster linker, sccache, debug-info settings, separate
    rust-analyzer target (`references/rust.md`); git fsmonitor, Gradle cache
-   (`references/other-tools.md`); WSL file placement and memory caps
-   (`references/wsl-containers.md`).
+   (`references/other-tools.md`); WSL file placement and memory caps, or a dedicated
+   WSL 2 distro as a Linux test lane (`references/wsl-containers.md`).
+
+If the audit shows a time daemon or a kernel tick other than 10000 in WSL, raise that
+first, whatever the complaint: it causes random failures of time-sensitive tests in every
+distro (`references/wsl-containers.md`, "One time source").
 8. **Power** - "Best performance" power mode on a desktop (laptop: only while plugged in);
    check whether background builds get throttled (`references/windows-extras.md`).
 9. **Indexing** - usually nothing to gain; explain why (`references/indexing.md`).
@@ -135,7 +143,7 @@ Read only what the conversation needs.
 | `references/test-runs.md` | Overlapping test runs, databases, ports, CPU contention, targeted tests |
 | `references/rust.md` | Linker, sccache, debug info, merging test binaries, build-lock contention, nightly options |
 | `references/postgres.md` | Test-only PostgreSQL: template databases, non-durable settings, connections |
-| `references/wsl-containers.md` | WSL file placement, `.wslconfig` memory/CPU caps, Docker/Podman limits |
+| `references/wsl-containers.md` | WSL file placement, `.wslconfig` memory/CPU caps, Docker/Podman limits, a WSL 2 test lane (dedicated distro, getting code in, driving it from Windows), the WSL clock stepping back, mirrored-networking side effects |
 | `references/other-tools.md` | Git fsmonitor/untracked cache, Gradle cache and daemons, Node |
 | `references/windows-extras.md` | Power throttling, RAM/page file, Smart App Control, HVCI, rejected tweaks |
 | `references/mac.md` | Mac: scanning of new binaries, Developer Tools exemption, Rosetta, read-only checks |

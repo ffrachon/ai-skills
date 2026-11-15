@@ -13,7 +13,7 @@
       "name": "dev-pc-tuning",
       "source": "./plugins/dev-pc-tuning",
       "description": "Audit and tune a Windows PC (and optionally a Mac) for heavy development work: read-only audit, measurement, then recommendations the user applies.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": { "name": "ffrachon" },
       "homepage": "https://github.com/ffrachon/ai-skills/tree/main/plugins/dev-pc-tuning",
       "license": "MIT",

@@ -5,7 +5,9 @@
 .DESCRIPTION
   Reports Dev Drive status, Defender state, where toolchains and caches live, Windows Search
   scope, power plan, page file, free disk, build-output folder sizes, WSL/container disk
-  placement and .wslconfig caps, Smart App Control / memory integrity state (report only),
+  placement, .wslconfig caps and networking mode, the WSL clock (time daemons, kernel tick,
+  backward jumps; in already-running distros only), Smart App Control / memory integrity
+  state (report only),
   global git settings, Gradle cache settings and PostgreSQL services.
 
   This script ONLY READS. It changes no setting, exclusion, file or registry value.
@@ -408,6 +410,84 @@ if ($wsl.Count -gt 0 -and -not ($result.WslConfig -match 'memory\s*=')) {
     Add-Finding 'info' 'WSL' 'WSL/containers are installed and WSL memory is not capped. If Windows builds slow down while containers run, see references/wsl-containers.md.'
 }
 
+$result.WslNetworkingMode = 'nat (default)'
+if (Test-Path -LiteralPath $wslCfgPath) {
+    $nm = @(Get-Content -LiteralPath $wslCfgPath -ErrorAction SilentlyContinue | Where-Object { $_ -match '^\s*networkingMode\s*=' }) | Select-Object -First 1
+    if ($nm -and $nm -match '=\s*(\S+)') { $result.WslNetworkingMode = $Matches[1] }
+}
+if ($wsl.Count -gt 0 -and $result.WslNetworkingMode -eq 'mirrored') {
+    Add-Finding 'info' 'WSL' 'WSL networking is mirrored: distros share localhost ports with Windows, and a connection to a closed localhost port is dropped instead of refused. If a service in WSL clashes with a Windows port, or "connection refused" checks are slow only in WSL, see references/wsl-containers.md ("Mirrored networking").'
+}
+
+# WSL clock. All WSL 2 distros share one kernel clock that Hyper-V keeps in sync; a time
+# daemon in any distro fights it and the clock steps back about 1 s a minute. Only distros
+# that are ALREADY RUNNING are probed (the audit never starts one), and the probe only reads:
+# systemctl is-active, adjtimex with modes = 0, dmesg, /proc/uptime.
+function Invoke-WslRead([string[]]$wslArgs, [int]$timeoutMs = 20000) {
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = 'wsl.exe'
+    # Quote only arguments with spaces: wsl.exe reads its raw command line and does not treat
+    # a quoted "--list" as an option. None may contain a double quote (asserted by callers).
+    $psi.Arguments = (($wslArgs | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' ')
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.CreateNoWindow = $true
+    $psi.StandardOutputEncoding = [Text.Encoding]::UTF8
+    $psi.EnvironmentVariables['WSL_UTF8'] = '1'
+    $p = [Diagnostics.Process]::Start($psi)
+    $out = $p.StandardOutput.ReadToEndAsync()
+    $null = $p.StandardError.ReadToEndAsync()
+    if (-not $p.WaitForExit($timeoutMs)) { try { $p.Kill() } catch { }; return @() }
+    return @(($out.Result -replace "`0", '') -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+}
+$clockProbe = 'for s in systemd-timesyncd chrony chronyd ntp ntpd ntpsec; do systemctl is-active --quiet $s 2>/dev/null && echo daemon=$s; done; ' +
+    'command -v python3 >/dev/null && echo tick=$(python3 -c ''import ctypes,sys; b=ctypes.create_string_buffer(256); ctypes.CDLL(None).adjtimex(b); print(int.from_bytes(b.raw[88:96], sys.byteorder, signed=True))'' 2>/dev/null); ' +
+    'echo jumps=$(dmesg 2>/dev/null | grep -c Time.jumped.backwards); ' +
+    'l=$(dmesg 2>/dev/null | grep Time.jumped.backwards | tail -n 1 | tr -d ''['' | cut -d. -f1 | tr -d '' ''); ' +
+    'test ${l:-x} != x && echo ago=$(( $(cut -d. -f1 /proc/uptime) - l ))'
+$clockRows = @()
+$kernelTick = $null; $kernelJumps = $null; $lastJumpAgo = $null
+if ($wsl.Count -gt 0 -and $clockProbe -notmatch '"' -and (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
+    try {
+        $known = @($wsl | ForEach-Object { $_.Distro })
+        $running = @(Invoke-WslRead @('--list', '--running', '--quiet') 10000 | Where-Object { $known -contains $_ })
+        foreach ($d in $running) {
+            if ($d -match '"') { continue }
+            $lines = Invoke-WslRead @('-d', $d, '-u', 'root', '--exec', 'sh', '-c', $clockProbe)
+            $daemons = @($lines | Where-Object { $_ -like 'daemon=*' } | ForEach-Object { $_.Substring(7) })
+            foreach ($l in $lines) {
+                if ($l -match '^tick=(-?\d+)$' -and $null -eq $kernelTick) { $kernelTick = [int64]$Matches[1] }
+                elseif ($l -match '^jumps=(\d+)$' -and $null -eq $kernelJumps) { $kernelJumps = [int]$Matches[1] }
+                elseif ($l -match '^ago=(-?\d+)$' -and $null -eq $lastJumpAgo) { $lastJumpAgo = [int64]$Matches[1] }
+            }
+            $clockRows += [pscustomobject]@{
+                Distro     = $d
+                TimeDaemon = if ($lines.Count -eq 0) { 'not readable' } elseif ($daemons.Count) { $daemons -join ', ' } else { 'none' }
+            }
+            foreach ($dm in $daemons) {
+                Add-Finding 'warn' 'WSL clock' "A time daemon ($dm) runs in WSL distro '$d'. All distros share one kernel clock that Hyper-V already keeps in sync; a second time source makes it step back about 1 s a minute in every distro, and time-sensitive tests fail at random. See references/wsl-containers.md (""One time source"")."
+            }
+        }
+    } catch { }
+}
+$result.WslClock = [ordered]@{
+    ProbedDistros     = $clockRows
+    KernelTick        = if ($null -ne $kernelTick) { $kernelTick } elseif ($clockRows.Count) { 'not readable (no python3 in the running distros)' } else { 'no running distro (not probed)' }
+    BackwardJumps     = if ($null -ne $kernelJumps) { $kernelJumps } else { 'not read' }
+    LastJumpSecondsAgo = $lastJumpAgo
+}
+if ($null -ne $kernelTick -and $kernelTick -ne 10000) {
+    Add-Finding 'warn' 'WSL clock' "The WSL kernel tick is $kernelTick instead of 10000: something is slewing the shared clock, so it runs fast and Hyper-V steps it back. Disable the time daemon, then reset the tick or run wsl --shutdown (references/wsl-containers.md, ""One time source"")."
+}
+if ($null -ne $kernelJumps -and $kernelJumps -gt 0) {
+    $agoText = if ($null -ne $lastJumpAgo) { "the last one about $([math]::Round($lastJumpAgo / 60)) min ago" } else { 'time of the last one unknown' }
+    $recent = ($null -ne $lastJumpAgo -and $lastJumpAgo -lt 900)
+    $lvl = if ($recent) { 'warn' } else { 'info' }
+    $tail = if ($recent) { 'The clock is still stepping back; time-sensitive tests will fail at random.' } else { 'If no time daemon runs now and the tick is 10000, this is history from before a fix (wsl --shutdown clears the log).' }
+    Add-Finding $lvl 'WSL clock' "The WSL kernel log shows $kernelJumps 'Time jumped backwards' message(s) since it started, $agoText. $tail See references/wsl-containers.md (""One time source"")."
+}
+
 # ---------------------------------------------------------------- git, Gradle, PostgreSQL
 
 $tools = [ordered]@{}
@@ -558,6 +638,13 @@ $sec.GetEnumerator() | ForEach-Object { Write-Output ("  {0,-28} {1}" -f $_.Key,
 Write-Section 'WSL and container disks'
 if ($wsl.Count) { $wsl | Format-Table Distro, Drive, Size, Disk -AutoSize | Out-String -Width 220 | Write-Output } else { Write-Output '  none found' }
 Write-Output "  .wslconfig: $($result.WslConfig)"
+Write-Output "  networking mode: $($result.WslNetworkingMode)"
+$wc2 = $result.WslClock
+if ($wc2.ProbedDistros.Count) {
+    Write-Output ("  clock (running distros): " + (($wc2.ProbedDistros | ForEach-Object { "$($_.Distro): time daemon $($_.TimeDaemon)" }) -join '; '))
+}
+$agoOut = if ($null -ne $wc2.LastJumpSecondsAgo) { ", last $([math]::Round($wc2.LastJumpSecondsAgo / 60)) min ago" } else { '' }
+Write-Output "  kernel tick: $($wc2.KernelTick) (should be 10000); backward jumps logged: $($wc2.BackwardJumps)$agoOut"
 
 Write-Section 'Git, Gradle, PostgreSQL'
 $tools.GetEnumerator() | ForEach-Object {
