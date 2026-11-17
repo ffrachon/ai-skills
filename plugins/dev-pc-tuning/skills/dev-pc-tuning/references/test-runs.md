@@ -35,6 +35,13 @@ which then trigger reruns that make it worse.
    try { <# run the full suite here #> } finally { $fs.Close() }
    ```
    (An exclusive file handle is released automatically if the process dies.)
+   **A self-hosted CI runner on the same machine counts as a full check.** A release or
+   CI job running its test suite on this PC competes for the same CPU, disk and local database,
+   but sessions don't see it, so they start their own full runs alongside it. In one case a
+   release job needed two reruns: one database statement timeout and one flaky time-sensitive
+   test, both from load. Have the runner's test job take the same lock, or check for a busy
+   runner (`gh run list --status in_progress`, or the runner's `_work` folder activity) before
+   starting a full run.
 3. **Isolate what must run in parallel:** per-run database names (or schemas), ports chosen
    by the OS (bind to port 0) or from a per-run range, per-run temp folders
    (`temp-files.md`).
