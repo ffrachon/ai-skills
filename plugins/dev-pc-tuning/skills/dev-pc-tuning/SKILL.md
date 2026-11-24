@@ -140,10 +140,10 @@ Read only what the conversation needs.
 | `references/temp-files.md` | Moving TEMP/TMP for builds and tests to the dev drive |
 | `references/indexing.md` | Windows Search / content indexing questions |
 | `references/cleanup.md` | Huge `target` / `build` / `node_modules` folders, caches, WSL/container disks |
-| `references/test-runs.md` | Overlapping test runs, databases, ports, CPU contention, targeted tests |
+| `references/test-runs.md` | Overlapping test runs, databases, ports, CPU contention, targeted tests; how many runs at once, running a check's parts side by side, a second machine as a second full-check slot, checking several branches without reruns, test tools every worktree finds |
 | `references/rust.md` | Linker, sccache, debug info, merging test binaries, build-lock contention, nightly options |
 | `references/postgres.md` | Test-only PostgreSQL: template databases, non-durable settings, connections |
 | `references/wsl-containers.md` | WSL file placement, `.wslconfig` memory/CPU caps, Docker/Podman limits, a WSL 2 test lane (dedicated distro, getting code in, driving it from Windows), the WSL clock stepping back, mirrored-networking side effects |
-| `references/other-tools.md` | Git fsmonitor/untracked cache, Gradle cache and daemons, Node |
+| `references/other-tools.md` | Git fsmonitor/untracked cache, Gradle cache and daemons, Node, several Playwright versions on one machine |
 | `references/windows-extras.md` | Power throttling, RAM/page file, Smart App Control, HVCI, rejected tweaks |
 | `references/mac.md` | Mac: scanning of new binaries, Developer Tools exemption, Rosetta, read-only checks |
