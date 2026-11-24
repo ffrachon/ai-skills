@@ -67,3 +67,7 @@ appear (it doesn't enable anything by itself).
   Mac as well.
 - The same habits as on Windows apply: targeted tests while iterating, one full run at a
   time (`test-runs.md`), clean old build output (`cleanup.md`).
+- **As a second full-check machine next to a Windows PC:** keep it warm, sync its
+  dependencies from a pinned file on every run, add a short dry-run check, and watch for BSD
+  versus GNU tool differences (`tar --mtime`, `sed -i`, `date -d`): see `test-runs.md`, "A
+  second machine as the second full-check slot".

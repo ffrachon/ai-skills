@@ -58,3 +58,32 @@ org.gradle.jvmargs=-Xmx4g
   performance mode matter most here.
 - Test runners (vitest, jest) default to one worker per core; with several sessions, cap
   them (`--maxWorkers=4` in both) rather than letting several runs overlap at full width.
+
+## Several Playwright versions on one machine
+
+Playwright keeps its browsers in one shared cache (`%LOCALAPPDATA%\ms-playwright` on Windows,
+`~/Library/Caches/ms-playwright` on macOS, `~/.cache/ms-playwright` on Linux), one folder per
+browser build. Each Playwright version wants its own build, and **`npx playwright install`
+deletes every build it doesn't know about** - including one another project or worktree
+needs, even while a test of theirs is running. In one case, installing an older Playwright
+for one repository deleted the Chromium build a second repository's full check was using
+at that moment; its browser parts failed and had to rerun.
+
+- **What:** set the user environment variable `PLAYWRIGHT_SKIP_BROWSER_GC=1`, so installs
+  only add browsers.
+- **Expected gain:** no more "Executable doesn't exist" failures after someone installs
+  another version; no re-downloads of about 120 MB per build.
+- **Risk:** old builds pile up (about 150-300 MB each); delete unused `chromium-NNNN`
+  folders by hand now and then, when no tests are running.
+- **Apply (normal PowerShell):**
+  `[Environment]::SetEnvironmentVariable('PLAYWRIGHT_SKIP_BROWSER_GC','1','User')`
+- **Undo:**
+  `[Environment]::SetEnvironmentVariable('PLAYWRIGHT_SKIP_BROWSER_GC',$null,'User')`
+
+New terminals and sessions see a user variable; ones already open don't. If a build is
+missing, reinstall it from the project that needs it (`npx playwright install chromium` in
+that project's folder). With the variable set, that won't delete anything else.
+
+A per-checkout install (`npm install --no-save playwright`) is missing from every new git
+worktree. For several worktrees, install it once in a shared folder and set `NODE_PATH`
+(`test-runs.md`, "Tools a check needs").
