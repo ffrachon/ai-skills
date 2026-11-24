@@ -76,15 +76,30 @@ in a shared instructions file such as `CLAUDE.md`.
 
 ## How much can run at once
 
-A rule of thumb from a 20-thread, 64 GB desktop shared by up to five AI coding sessions,
-each in its own git worktree:
+Starting points by machine size, for several AI sessions or terminals, each in its own git
+worktree. Measure and adjust (time one run alone, then with the others): the right numbers
+depend on the project far more than on the hardware.
 
-| What | Safe at once | What keeps them apart |
-|---|---|---|
-| Targeted tests (one file, one crate) | one per session (5 there) | separate worktrees; heavy ones also take a test slot |
-| Database-heavy test runs | about 3 | a counting lock ("test slots": N lock files, a run takes any free one) so the shared PostgreSQL never runs out of connections |
-| Full checks | **one per machine** | the full-check lock |
-| Parts inside one full check | 2-3 tracks side by side | ordering within each track (below) |
+| Machine (threads / RAM) | Targeted test runs at once | Database-heavy runs at once | Full checks | Tracks inside one full check |
+|---|---|---|---|---|
+| Laptop, 8 / 16 GB | 2 | 1 | 1 | 1 (parts one after another) |
+| Workstation, 12-16 / 32 GB | 3 | 2 | 1 | 2 |
+| Desktop, 20-24 / 64 GB | 4-5 | 3 | 1 | 2-3 |
+| Large desktop, 32+ / 128 GB | 6-8 | 4 | 1 (2 only once nothing is shared by name, below) | 3 |
+| Plus a second machine | - | - | +1, on that machine | its own |
+
+What keeps them apart:
+
+- **Targeted runs:** separate worktrees; the heavy ones also take a test slot.
+- **Database-heavy runs:** a counting lock ("test slots": N lock files, a run takes any free
+  one), so the shared PostgreSQL never runs out of connections. One full backend suite can
+  hold dozens of connections and every core.
+- **Full checks:** the full-check lock, one per machine.
+- **Tracks:** the ordering rules below.
+
+Leave headroom for what else runs: each AI session, IDE or language server takes 1-3 GB, and
+a full check with a browser pass can take 8-16 GB at its peak. If the machine starts paging,
+lower the numbers before buying anything.
 
 A second full check on the same machine is only safe once nothing is shared by name: a
 separate database cluster per check, OS-chosen ports, container names unique to each run,
@@ -93,7 +108,7 @@ had to rerun parts). Measure what it would save before building it: with the hab
 the queue for the single slot is usually short.
 
 **Make the full-check lock first come, first served.** A plain "retry every 30 s" lock lets
-a late arrival grab the lock while an earlier waiter sleeps; one session waited 95 minutes
+a late arrival grab the lock while an earlier waiter sleeps; one session waited well over an hour
 that way. Have each waiter write a ticket file (arrival time, process id) and let only the
 oldest live ticket try the lock; drop tickets whose process is gone.
 
@@ -101,7 +116,7 @@ oldest live ticket try the lock; drop tickets whose process is gone.
 
 A full check is often several independent parts (backend tests, a security scan, translations,
 two front-end builds with browser checks, a static site with an accessibility pass). Running
-them in 2-3 tracks at once cut one project's check from about 60 to about 25 minutes. Rules
+them in 2-3 tracks at once roughly halved one project's check time. Rules
 that came out of the failures:
 
 - Keep the CPU- and database-heavy part (the backend's compile and tests) in a track of its
@@ -120,8 +135,9 @@ that came out of the failures:
 ## A second machine as the second full-check slot
 
 A second machine (a laptop, a Mac) with its own lock doubles the full checks you can run
-with no contention at all. In one setup an M1 laptop ran the backend part as fast as the
-i9 desktop, while the desktop ran the rest. What made it reliable:
+with no contention at all. A recent laptop can run the heaviest part (the backend's compile
+and tests) about as fast as a desktop, while the desktop runs the rest (`mac.md` on Apple
+Silicon). What made it reliable:
 
 - **Send the exact commit,** not a working folder: bundle `HEAD` (`git bundle`), check it out
   on the other machine, and record the commit and tree with the result.
@@ -132,8 +148,8 @@ i9 desktop, while the desktop ran the rest. What made it reliable:
 - **Install its dependencies from a file, every run:** a pinned requirements file synced into
   the lane's own virtual environment before each run, plus a check that the toolchain
   version matches the main PC's. A package added by hand on one machine was missing on the
-  other and cost 40 minutes.
-- **A 10-second dry run** (`--preflight`: reach the machine, lock free, toolchain and packages
+  other and cost most of an hour.
+- **A dry run of a few seconds** (`--preflight`: reach the machine, lock free, toolchain and packages
   match) catches all of that before a 25-minute run.
 - **Mind tool differences between operating systems.** macOS's BSD `tar` has no `--mtime`
   (GNU tar has), so a reproducible-archive step that worked on Linux and Windows failed
@@ -171,6 +187,6 @@ docs installed it inside one checkout (`npm install --no-save`).
 - For Playwright specifically, see `other-tools.md` ("Several Playwright versions on one
   machine"): installing a browser can delete the browsers of other projects.
 
-**Port clashes show up as rare, random failures** ("address already in use", 1 page in 700
-of an accessibility pass) only when other checks run alongside. Bind every test server to
+**Port clashes show up as rare, random failures** ("address already in use" on one page of a long
+accessibility pass) only when other checks run alongside. Bind every test server to
 port 0 and pass the chosen port to its clients, rather than fixing ports per project.
